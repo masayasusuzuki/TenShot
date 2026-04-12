@@ -1,30 +1,48 @@
-//
-//  AppDelegate.swift
-//  TenShot
-//
-//  Created by 鈴木元康(main) on 2026/04/13.
-//
-
 import Cocoa
 
-@main
 class AppDelegate: NSObject, NSApplicationDelegate {
 
-    
+    var statusItem: NSStatusItem!
+    var panelWindowController: PanelWindowController!
 
+    func applicationDidFinishLaunching(_ notification: Notification) {
+        ProcessInfo.processInfo.disableAutomaticTermination("MenuBarApp")
+        ProcessInfo.processInfo.disableSuddenTermination()
 
-    func applicationDidFinishLaunching(_ aNotification: Notification) {
-        // Insert code here to initialize your application
+        statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
+        if let button = statusItem.button {
+            button.title = "10Shot"
+            button.action = #selector(statusItemClicked)
+            button.target = self
+            button.sendAction(on: [.leftMouseUp, .rightMouseUp])
+        }
+
+        panelWindowController = PanelWindowController()
+        NSLog("[10Shot] App launched successfully")
     }
 
-    func applicationWillTerminate(_ aNotification: Notification) {
-        // Insert code here to tear down your application
+    func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool {
+        return false
     }
 
-    func applicationSupportsSecureRestorableState(_ app: NSApplication) -> Bool {
-        return true
+    @objc func statusItemClicked() {
+        guard let event = NSApp.currentEvent else { return }
+
+        if event.type == .rightMouseUp {
+            // 右クリック → メニュー表示
+            let menu = NSMenu()
+            menu.addItem(NSMenuItem(title: "Quit 10Shot", action: #selector(quitApp), keyEquivalent: "q"))
+            statusItem.menu = menu
+            statusItem.button?.performClick(nil)
+            // メニュー表示後にnilに戻す（左クリックが効くように）
+            DispatchQueue.main.async { self.statusItem.menu = nil }
+        } else {
+            // 左クリック → パネル表示/非表示
+            panelWindowController.toggle()
+        }
     }
 
-
+    @objc func quitApp() {
+        NSApp.terminate(nil)
+    }
 }
-
