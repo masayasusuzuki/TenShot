@@ -5,6 +5,8 @@ class DraggableImageView: NSView {
     var image: NSImage? {
         didSet { needsDisplay = true }
     }
+    var onClicked: (() -> Void)?
+    private var didDrag = false
 
     override func resetCursorRects() {
         super.resetCursorRects()
@@ -15,10 +17,12 @@ class DraggableImageView: NSView {
 
     override func mouseDown(with event: NSEvent) {
         NSCursor.closedHand.push()
+        didDrag = false
     }
 
     override func mouseUp(with event: NSEvent) {
         NSCursor.pop()
+        if !didDrag { onClicked?() }
     }
 
     override func draw(_ dirtyRect: NSRect) {
@@ -40,6 +44,7 @@ class DraggableImageView: NSView {
     }
 
     override func mouseDragged(with event: NSEvent) {
+        didDrag = true
         guard let image = image, let pngData = image.pngData() else { return }
 
         // 一時ファイルに書き出し

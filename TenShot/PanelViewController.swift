@@ -1,5 +1,20 @@
 import Cocoa
 
+// グラスモーフィズム用カラー
+private enum Glass {
+    static let bg1 = NSColor(red: 8/255, green: 8/255, blue: 20/255, alpha: 1)
+    static let bg2 = NSColor(red: 15/255, green: 15/255, blue: 40/255, alpha: 1)
+    static let cardBg = NSColor(white: 1, alpha: 0.07)
+    static let cardBorder = NSColor(white: 1, alpha: 0.15)
+    static let accent = NSColor(red: 100/255, green: 140/255, blue: 255/255, alpha: 1)
+    static let accentGlow = NSColor(red: 80/255, green: 120/255, blue: 255/255, alpha: 0.3)
+    static let headerBg = NSColor(white: 1, alpha: 0.05)
+    static let headerBorder = NSColor(white: 1, alpha: 0.1)
+    static let dropBorder = NSColor(red: 100/255, green: 140/255, blue: 255/255, alpha: 0.35)
+    static let textPrimary = NSColor(white: 1, alpha: 0.9)
+    static let textSecondary = NSColor(white: 1, alpha: 0.4)
+}
+
 class PanelViewController: NSViewController {
 
     private let store = ImageStore.shared
@@ -7,73 +22,89 @@ class PanelViewController: NSViewController {
     private var stackView: NSStackView!
     private var countLabel: NSTextField!
 
-    private let frameWidth: CGFloat = 10
-
     override func loadView() {
-        let corkView = CorkTextureView(frame: NSRect(x: 0, y: 0, width: 300, height: 600))
-        corkView.onDrop = { [weak self] image in
+        let baseView = DropReceivingView(frame: NSRect(x: 0, y: 0, width: 300, height: 600))
+        baseView.wantsLayer = true
+        baseView.onDrop = { [weak self] image in
             self?.store.add(image: image)
         }
-        view = corkView
+        view = baseView
     }
 
     override func viewDidLoad() {
         super.viewDidLoad()
+        // グラデーション背景
+        let gradLayer = CAGradientLayer()
+        gradLayer.frame = view.bounds
+        gradLayer.colors = [Glass.bg1.cgColor, Glass.bg2.cgColor]
+        gradLayer.startPoint = CGPoint(x: 0, y: 1)
+        gradLayer.endPoint = CGPoint(x: 1, y: 0)
+        gradLayer.autoresizingMask = [.layerWidthSizable, .layerHeightSizable]
+        view.layer?.insertSublayer(gradLayer, at: 0)
+
         buildUI()
         reloadImages()
 
         store.onChange = { [weak self] in
-            DispatchQueue.main.async {
-                self?.reloadImages()
-            }
+            DispatchQueue.main.async { self?.reloadImages() }
         }
     }
 
     private func buildUI() {
-        // 木枠
-        let frameLeft = WoodFrameView()
-        frameLeft.edge = .left
-        let frameRight = WoodFrameView()
-        frameRight.edge = .right
-        let frameTop = WoodFrameView()
-        frameTop.edge = .top
-        let frameBottom = WoodFrameView()
-        frameBottom.edge = .bottom
-
-        // ヘッダー（木枠の上に載せる）
+        // ヘッダー
         let headerBg = NSView()
         headerBg.wantsLayer = true
-        headerBg.layer?.backgroundColor = NSColor(red: 90/255, green: 55/255, blue: 25/255, alpha: 0.85).cgColor
+        headerBg.layer?.backgroundColor = Glass.headerBg.cgColor
+
+        let headerBorder = NSView()
+        headerBorder.wantsLayer = true
+        headerBorder.layer?.backgroundColor = Glass.headerBorder.cgColor
 
         let title = NSTextField(labelWithString: "10Shot")
-        title.font = NSFont(name: "Marker Felt", size: 18) ?? .boldSystemFont(ofSize: 18)
-        title.textColor = NSColor(red: 255/255, green: 230/255, blue: 190/255, alpha: 1)
+        title.font = .boldSystemFont(ofSize: 17)
+        title.textColor = Glass.textPrimary
 
         countLabel = NSTextField(labelWithString: "(0/10)")
-        countLabel.font = NSFont(name: "Marker Felt", size: 12) ?? .systemFont(ofSize: 12)
-        countLabel.textColor = NSColor(red: 255/255, green: 230/255, blue: 190/255, alpha: 0.6)
+        countLabel.font = .systemFont(ofSize: 11)
+        countLabel.textColor = Glass.textSecondary
 
-        let ssBtn = makeButton(title: "SS")
+        let ssBtn = makeGlassButton(title: "SS")
         ssBtn.action = #selector(takeScreenshot)
         ssBtn.target = self
         ssBtn.toolTip = "範囲選択スクリーンショット"
 
-        let clearBtn = makeButton(title: "Clear")
+        let clearBtn = makeGlassButton(title: "Clear")
         clearBtn.action = #selector(clearAll)
         clearBtn.target = self
 
-        // ドロップゾーン（コルクに溶け込む点線枠）
-        let dropZone = NSView()
-        dropZone.wantsLayer = true
-        dropZone.layer?.cornerRadius = 4
-        dropZone.layer?.borderWidth = 0
 
+        // 透明度スライダー行
+        let sliderRow = NSView()
+        sliderRow.wantsLayer = true
+        sliderRow.layer?.backgroundColor = Glass.headerBg.cgColor
+
+        let sliderBorder = NSView()
+        sliderBorder.wantsLayer = true
+        sliderBorder.layer?.backgroundColor = Glass.headerBorder.cgColor
+
+        let opacityIcon = NSTextField(labelWithString: "◑")
+        opacityIcon.font = .systemFont(ofSize: 11)
+        opacityIcon.textColor = Glass.textSecondary
+
+        let slider = NSSlider(value: 0.92, minValue: 0.2, maxValue: 1.0,
+                              target: self, action: #selector(opacityChanged(_:)))
+        slider.sliderType = .linear
+        slider.isContinuous = true
+        slider.translatesAutoresizingMaskIntoConstraints = false
+
+        // ドロップゾーン
+        let dropZone = GlassBorderView()
         let dropLabel = NSTextField(labelWithString: "Drop images here")
-        dropLabel.font = NSFont(name: "Marker Felt", size: 13) ?? .systemFont(ofSize: 13)
-        dropLabel.textColor = NSColor(red: 100/255, green: 65/255, blue: 30/255, alpha: 0.5)
+        dropLabel.font = .systemFont(ofSize: 12)
+        dropLabel.textColor = Glass.textSecondary
         dropLabel.alignment = .center
 
-        // スクロールビュー
+        // スクロール
         scrollView = NSScrollView()
         scrollView.hasVerticalScroller = true
         scrollView.drawsBackground = false
@@ -81,70 +112,70 @@ class PanelViewController: NSViewController {
 
         stackView = NSStackView()
         stackView.orientation = .vertical
-        stackView.spacing = 16
-        stackView.edgeInsets = NSEdgeInsets(top: 8, left: 8, bottom: 8, right: 8)
+        stackView.spacing = 12
+        stackView.edgeInsets = NSEdgeInsets(top: 10, left: 10, bottom: 10, right: 10)
         scrollView.documentView = stackView
 
-        for v: NSView in [frameLeft, frameRight, frameTop, frameBottom,
-                          headerBg, title, countLabel, ssBtn, clearBtn,
+        for v: NSView in [headerBg, headerBorder, title, countLabel,
+                          ssBtn, clearBtn, sliderRow, sliderBorder, opacityIcon, slider,
                           dropZone, dropLabel, scrollView] {
             v.translatesAutoresizingMaskIntoConstraints = false
             view.addSubview(v)
         }
 
         NSLayoutConstraint.activate([
-            // 木枠 四辺
-            frameTop.topAnchor.constraint(equalTo: view.topAnchor),
-            frameTop.leadingAnchor.constraint(equalTo: view.leadingAnchor),
-            frameTop.trailingAnchor.constraint(equalTo: view.trailingAnchor),
-            frameTop.heightAnchor.constraint(equalToConstant: frameWidth),
+            headerBg.topAnchor.constraint(equalTo: view.topAnchor),
+            headerBg.leadingAnchor.constraint(equalTo: view.leadingAnchor),
+            headerBg.trailingAnchor.constraint(equalTo: view.trailingAnchor),
+            headerBg.heightAnchor.constraint(equalToConstant: 46),
 
-            frameBottom.leadingAnchor.constraint(equalTo: view.leadingAnchor),
-            frameBottom.trailingAnchor.constraint(equalTo: view.trailingAnchor),
-            frameBottom.bottomAnchor.constraint(equalTo: view.bottomAnchor),
-            frameBottom.heightAnchor.constraint(equalToConstant: frameWidth),
+            headerBorder.leadingAnchor.constraint(equalTo: view.leadingAnchor),
+            headerBorder.trailingAnchor.constraint(equalTo: view.trailingAnchor),
+            headerBorder.bottomAnchor.constraint(equalTo: headerBg.bottomAnchor),
+            headerBorder.heightAnchor.constraint(equalToConstant: 0.5),
 
-            frameLeft.topAnchor.constraint(equalTo: frameTop.bottomAnchor),
-            frameLeft.leadingAnchor.constraint(equalTo: view.leadingAnchor),
-            frameLeft.bottomAnchor.constraint(equalTo: frameBottom.topAnchor),
-            frameLeft.widthAnchor.constraint(equalToConstant: frameWidth),
-
-            frameRight.topAnchor.constraint(equalTo: frameTop.bottomAnchor),
-            frameRight.trailingAnchor.constraint(equalTo: view.trailingAnchor),
-            frameRight.bottomAnchor.constraint(equalTo: frameBottom.topAnchor),
-            frameRight.widthAnchor.constraint(equalToConstant: frameWidth),
-
-            // ヘッダー（木枠の内側）
-            headerBg.topAnchor.constraint(equalTo: frameTop.bottomAnchor),
-            headerBg.leadingAnchor.constraint(equalTo: frameLeft.trailingAnchor),
-            headerBg.trailingAnchor.constraint(equalTo: frameRight.leadingAnchor),
-            headerBg.heightAnchor.constraint(equalToConstant: 40),
-
-            title.leadingAnchor.constraint(equalTo: headerBg.leadingAnchor, constant: 10),
+            title.leadingAnchor.constraint(equalTo: headerBg.leadingAnchor, constant: 14),
             title.centerYAnchor.constraint(equalTo: headerBg.centerYAnchor),
 
-            countLabel.leadingAnchor.constraint(equalTo: title.trailingAnchor, constant: 4),
+            countLabel.leadingAnchor.constraint(equalTo: title.trailingAnchor, constant: 6),
             countLabel.centerYAnchor.constraint(equalTo: headerBg.centerYAnchor),
 
-            clearBtn.trailingAnchor.constraint(equalTo: headerBg.trailingAnchor, constant: -6),
+            clearBtn.trailingAnchor.constraint(equalTo: headerBg.trailingAnchor, constant: -10),
             clearBtn.centerYAnchor.constraint(equalTo: headerBg.centerYAnchor),
-            ssBtn.trailingAnchor.constraint(equalTo: clearBtn.leadingAnchor, constant: -3),
+            ssBtn.trailingAnchor.constraint(equalTo: clearBtn.leadingAnchor, constant: -6),
             ssBtn.centerYAnchor.constraint(equalTo: headerBg.centerYAnchor),
 
-            // ドロップゾーン
-            dropZone.topAnchor.constraint(equalTo: headerBg.bottomAnchor, constant: 8),
-            dropZone.leadingAnchor.constraint(equalTo: frameLeft.trailingAnchor, constant: 10),
-            dropZone.trailingAnchor.constraint(equalTo: frameRight.leadingAnchor, constant: -10),
-            dropZone.heightAnchor.constraint(equalToConstant: 36),
+
+            // スライダー行
+            sliderRow.topAnchor.constraint(equalTo: headerBg.bottomAnchor),
+            sliderRow.leadingAnchor.constraint(equalTo: view.leadingAnchor),
+            sliderRow.trailingAnchor.constraint(equalTo: view.trailingAnchor),
+            sliderRow.heightAnchor.constraint(equalToConstant: 28),
+
+            sliderBorder.leadingAnchor.constraint(equalTo: view.leadingAnchor),
+            sliderBorder.trailingAnchor.constraint(equalTo: view.trailingAnchor),
+            sliderBorder.bottomAnchor.constraint(equalTo: sliderRow.bottomAnchor),
+            sliderBorder.heightAnchor.constraint(equalToConstant: 0.5),
+
+            opacityIcon.leadingAnchor.constraint(equalTo: sliderRow.leadingAnchor, constant: 12),
+            opacityIcon.centerYAnchor.constraint(equalTo: sliderRow.centerYAnchor),
+
+            slider.leadingAnchor.constraint(equalTo: opacityIcon.trailingAnchor, constant: 8),
+            slider.trailingAnchor.constraint(equalTo: sliderRow.trailingAnchor, constant: -12),
+            slider.centerYAnchor.constraint(equalTo: sliderRow.centerYAnchor),
+
+            dropZone.topAnchor.constraint(equalTo: sliderRow.bottomAnchor, constant: 10),
+            dropZone.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 12),
+            dropZone.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -12),
+            dropZone.heightAnchor.constraint(equalToConstant: 38),
 
             dropLabel.centerXAnchor.constraint(equalTo: dropZone.centerXAnchor),
             dropLabel.centerYAnchor.constraint(equalTo: dropZone.centerYAnchor),
 
-            // スクロール
-            scrollView.topAnchor.constraint(equalTo: dropZone.bottomAnchor, constant: 4),
-            scrollView.leadingAnchor.constraint(equalTo: frameLeft.trailingAnchor),
-            scrollView.trailingAnchor.constraint(equalTo: frameRight.leadingAnchor),
-            scrollView.bottomAnchor.constraint(equalTo: frameBottom.topAnchor),
+            scrollView.topAnchor.constraint(equalTo: dropZone.bottomAnchor, constant: 8),
+            scrollView.leadingAnchor.constraint(equalTo: view.leadingAnchor),
+            scrollView.trailingAnchor.constraint(equalTo: view.trailingAnchor),
+            scrollView.bottomAnchor.constraint(equalTo: view.bottomAnchor),
         ])
 
         stackView.translatesAutoresizingMaskIntoConstraints = false
@@ -155,114 +186,88 @@ class PanelViewController: NSViewController {
         ])
     }
 
-    private func makeButton(title: String) -> NSButton {
+    private func makeGlassButton(title: String) -> NSButton {
         let btn = NSButton(title: title, target: nil, action: nil)
         btn.bezelStyle = .rounded
         btn.font = .systemFont(ofSize: 10, weight: .medium)
         return btn
     }
 
-    // MARK: - 画像カード生成
-
     private func makePhotoCard(image: NSImage, index: Int) -> NSView {
-        // 白い写真用紙
-        let card = NSView()
-        card.wantsLayer = true
-        card.layer?.backgroundColor = NSColor.white.cgColor
-        card.layer?.shadowColor = NSColor.black.withAlphaComponent(0.5).cgColor
-        card.layer?.shadowOffset = CGSize(width: 1.5, height: -2.5)
-        card.layer?.shadowRadius = 5
-        card.layer?.shadowOpacity = 0.6
+        // グラスカード
+        let card = GlassCardView()
         card.translatesAutoresizingMaskIntoConstraints = false
 
-        // ランダムに少し傾ける
-        let angle = Double.random(in: -1.8...1.8)
-        card.frameCenterRotation = angle
-
-        // テープ（上部に貼る）
-        let tape = TapeView()
-        let tapeColors: [NSColor] = [
-            NSColor(red: 0.9, green: 0.85, blue: 0.7, alpha: 0.7),   // ベージュ
-            NSColor(red: 0.75, green: 0.85, blue: 0.8, alpha: 0.65),  // ミント
-            NSColor(red: 0.85, green: 0.78, blue: 0.85, alpha: 0.65), // ラベンダー
-            NSColor(red: 0.9, green: 0.82, blue: 0.75, alpha: 0.7),   // ピーチ
-        ]
-        tape.tapeColor = tapeColors[index % tapeColors.count]
-        tape.translatesAutoresizingMaskIntoConstraints = false
-        // テープも少し傾ける
-        tape.frameCenterRotation = Double.random(in: -8...8)
-
-        // 画像
         let imgView = DraggableImageView()
         imgView.image = image
         imgView.translatesAutoresizingMaskIntoConstraints = false
+        imgView.onClicked = { [weak self] in
+            self?.showPreview(image: image)
+        }
 
-        // ボタン
         let copyBtn = NSButton(title: "Copy", target: self, action: #selector(copyImage(_:)))
         copyBtn.bezelStyle = .rounded
         copyBtn.font = .systemFont(ofSize: 10)
         copyBtn.tag = index
         copyBtn.translatesAutoresizingMaskIntoConstraints = false
 
-        let removeBtn = NSButton(title: "x", target: self, action: #selector(removeImage(_:)))
+        let removeBtn = NSButton(title: "✕", target: self, action: #selector(removeImage(_:)))
         removeBtn.bezelStyle = .circular
-        removeBtn.font = .boldSystemFont(ofSize: 9)
+        removeBtn.font = .systemFont(ofSize: 9, weight: .bold)
         removeBtn.tag = index
         removeBtn.translatesAutoresizingMaskIntoConstraints = false
 
         card.addSubview(imgView)
         card.addSubview(copyBtn)
         card.addSubview(removeBtn)
-        card.addSubview(tape)
 
         NSLayoutConstraint.activate([
-            imgView.topAnchor.constraint(equalTo: card.topAnchor, constant: 10),
-            imgView.leadingAnchor.constraint(equalTo: card.leadingAnchor, constant: 10),
-            imgView.trailingAnchor.constraint(equalTo: card.trailingAnchor, constant: -10),
+            imgView.topAnchor.constraint(equalTo: card.topAnchor, constant: 8),
+            imgView.leadingAnchor.constraint(equalTo: card.leadingAnchor, constant: 8),
+            imgView.trailingAnchor.constraint(equalTo: card.trailingAnchor, constant: -8),
             imgView.heightAnchor.constraint(equalToConstant: 140),
 
-            copyBtn.topAnchor.constraint(equalTo: imgView.bottomAnchor, constant: 5),
-            copyBtn.leadingAnchor.constraint(equalTo: card.leadingAnchor, constant: 10),
+            copyBtn.topAnchor.constraint(equalTo: imgView.bottomAnchor, constant: 6),
+            copyBtn.leadingAnchor.constraint(equalTo: card.leadingAnchor, constant: 8),
             copyBtn.bottomAnchor.constraint(equalTo: card.bottomAnchor, constant: -8),
 
             removeBtn.centerYAnchor.constraint(equalTo: copyBtn.centerYAnchor),
-            removeBtn.trailingAnchor.constraint(equalTo: card.trailingAnchor, constant: -10),
-            removeBtn.widthAnchor.constraint(equalToConstant: 20),
-            removeBtn.heightAnchor.constraint(equalToConstant: 20),
-
-            tape.centerXAnchor.constraint(equalTo: card.centerXAnchor, constant: CGFloat.random(in: -15...15)),
-            tape.topAnchor.constraint(equalTo: card.topAnchor, constant: -4),
-            tape.widthAnchor.constraint(equalToConstant: 50),
-            tape.heightAnchor.constraint(equalToConstant: 16),
+            removeBtn.trailingAnchor.constraint(equalTo: card.trailingAnchor, constant: -8),
+            removeBtn.widthAnchor.constraint(equalToConstant: 22),
+            removeBtn.heightAnchor.constraint(equalToConstant: 22),
         ])
 
         return card
     }
-
-    // MARK: - Reload
 
     func reloadImages() {
         stackView.arrangedSubviews.forEach { $0.removeFromSuperview() }
         countLabel.stringValue = "(\(store.images.count)/\(store.maxImages))"
 
         if store.images.isEmpty {
-            let empty = NSTextField(labelWithString: "No images pinned yet")
-            empty.textColor = NSColor(red: 100/255, green: 65/255, blue: 30/255, alpha: 0.5)
-            empty.font = NSFont(name: "Marker Felt", size: 15) ?? .systemFont(ofSize: 15)
+            let empty = NSTextField(labelWithString: "No images yet")
+            empty.textColor = Glass.textSecondary
+            empty.font = .systemFont(ofSize: 13)
             empty.alignment = .center
             stackView.addArrangedSubview(empty)
-            return
         }
 
         for i in stride(from: store.images.count - 1, through: 0, by: -1) {
             guard let img = store.nsImage(at: i) else { continue }
             let card = makePhotoCard(image: img, index: i)
             stackView.addArrangedSubview(card)
-            card.widthAnchor.constraint(equalTo: stackView.widthAnchor, constant: -24).isActive = true
+            card.widthAnchor.constraint(equalTo: stackView.widthAnchor, constant: -20).isActive = true
         }
-    }
 
-    // MARK: - Actions
+        // 一番下にコーヒーリンク
+        let coffeeLink = NSButton(title: "☕ 開発者にコーヒーを奢る", target: self, action: #selector(openCoffee))
+        coffeeLink.bezelStyle = .inline
+        coffeeLink.isBordered = false
+        coffeeLink.font = .systemFont(ofSize: 10)
+        coffeeLink.contentTintColor = Glass.textSecondary
+        coffeeLink.alphaValue = 0.5
+        stackView.addArrangedSubview(coffeeLink)
+    }
 
     @objc private func copyImage(_ sender: NSButton) {
         guard let img = store.nsImage(at: sender.tag) else { return }
@@ -280,21 +285,36 @@ class PanelViewController: NSViewController {
         store.clear()
     }
 
+    @objc private func openCoffee() {
+        NSWorkspace.shared.open(URL(string: "https://buymeacoffee.com/masayasusuzuki")!)
+    }
+
+    private var previewWindow: ImagePreviewWindow?
+
+    private func showPreview(image: NSImage) {
+        previewWindow?.orderOut(nil)
+        previewWindow = nil
+        let w = ImagePreviewWindow(image: image)
+        w.isReleasedWhenClosed = false
+        w.makeKeyAndOrderFront(nil)
+        previewWindow = w
+    }
+
+    @objc private func opacityChanged(_ sender: NSSlider) {
+        view.window?.alphaValue = CGFloat(sender.doubleValue)
+    }
+
     @objc private func takeScreenshot() {
         view.window?.orderOut(nil)
-
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) { [weak self] in
             let tempFile = FileManager.default.temporaryDirectory
                 .appendingPathComponent("TenShot_ss_\(UUID().uuidString).png").path
-
             let process = Process()
             process.executableURL = URL(fileURLWithPath: "/usr/sbin/screencapture")
             process.arguments = ["-i", tempFile]
-
             process.terminationHandler = { _ in
                 DispatchQueue.main.async {
                     self?.view.window?.orderFrontRegardless()
-
                     if FileManager.default.fileExists(atPath: tempFile),
                        let img = NSImage(contentsOfFile: tempFile) {
                         self?.store.add(image: img)
@@ -302,9 +322,42 @@ class PanelViewController: NSViewController {
                     }
                 }
             }
-
             try? process.run()
         }
     }
+}
 
+// グラスカード
+class GlassCardView: NSView {
+    override init(frame: NSRect) {
+        super.init(frame: frame)
+        wantsLayer = true
+        layer?.backgroundColor = Glass.cardBg.cgColor
+        layer?.cornerRadius = 12
+        layer?.borderColor = Glass.cardBorder.cgColor
+        layer?.borderWidth = 0.5
+    }
+    required init?(coder: NSCoder) { super.init(coder: coder) }
+
+    override func draw(_ dirtyRect: NSRect) {
+        super.draw(dirtyRect)
+        // 上部に薄いグロー
+        guard let ctx = NSGraphicsContext.current?.cgContext else { return }
+        let glowRect = NSRect(x: 0, y: bounds.height - 1, width: bounds.width, height: 1)
+        ctx.setFillColor(NSColor(white: 1, alpha: 0.1).cgColor)
+        ctx.fill(glowRect)
+    }
+}
+
+// ドロップゾーンのボーダー
+class GlassBorderView: NSView {
+    override init(frame: NSRect) {
+        super.init(frame: frame)
+        wantsLayer = true
+        layer?.backgroundColor = NSColor.clear.cgColor
+        layer?.cornerRadius = 8
+        layer?.borderColor = Glass.dropBorder.cgColor
+        layer?.borderWidth = 1
+    }
+    required init?(coder: NSCoder) { super.init(coder: coder) }
 }

@@ -13,7 +13,8 @@ class PanelWindowController: NSWindowController {
         panel.isFloatingPanel = true
         panel.level = .floating
         panel.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]
-        panel.backgroundColor = NSColor(red: 194/255, green: 154/255, blue: 108/255, alpha: 1)
+        panel.backgroundColor = NSColor(red: 8/255, green: 8/255, blue: 20/255, alpha: 0.92)
+        panel.isOpaque = false
         panel.isMovable = true
         panel.hasShadow = true
 
