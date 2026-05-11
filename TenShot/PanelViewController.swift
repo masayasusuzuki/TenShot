@@ -77,6 +77,10 @@ class PanelViewController: NSViewController {
         clearBtn.action = #selector(clearAll)
         clearBtn.target = self
 
+        let quitBtn = makeGlassButton(title: "Quit")
+        quitBtn.action = #selector(quitApp)
+        quitBtn.target = self
+        quitBtn.toolTip = "Quit 10Shot"
 
         // 透明度スライダー行
         let sliderRow = NSView()
@@ -117,7 +121,7 @@ class PanelViewController: NSViewController {
         scrollView.documentView = stackView
 
         for v: NSView in [headerBg, headerBorder, title, countLabel,
-                          ssBtn, clearBtn, sliderRow, sliderBorder, opacityIcon, slider,
+                          ssBtn, clearBtn, quitBtn, sliderRow, sliderBorder, opacityIcon, slider,
                           dropZone, dropLabel, scrollView] {
             v.translatesAutoresizingMaskIntoConstraints = false
             view.addSubview(v)
@@ -140,7 +144,9 @@ class PanelViewController: NSViewController {
             countLabel.leadingAnchor.constraint(equalTo: title.trailingAnchor, constant: 6),
             countLabel.centerYAnchor.constraint(equalTo: headerBg.centerYAnchor),
 
-            clearBtn.trailingAnchor.constraint(equalTo: headerBg.trailingAnchor, constant: -10),
+            quitBtn.trailingAnchor.constraint(equalTo: headerBg.trailingAnchor, constant: -10),
+            quitBtn.centerYAnchor.constraint(equalTo: headerBg.centerYAnchor),
+            clearBtn.trailingAnchor.constraint(equalTo: quitBtn.leadingAnchor, constant: -6),
             clearBtn.centerYAnchor.constraint(equalTo: headerBg.centerYAnchor),
             ssBtn.trailingAnchor.constraint(equalTo: clearBtn.leadingAnchor, constant: -6),
             ssBtn.centerYAnchor.constraint(equalTo: headerBg.centerYAnchor),
@@ -258,15 +264,6 @@ class PanelViewController: NSViewController {
             stackView.addArrangedSubview(card)
             card.widthAnchor.constraint(equalTo: stackView.widthAnchor, constant: -20).isActive = true
         }
-
-        // 一番下にコーヒーリンク
-        let coffeeLink = NSButton(title: "☕ 開発者にコーヒーを奢る", target: self, action: #selector(openCoffee))
-        coffeeLink.bezelStyle = .inline
-        coffeeLink.isBordered = false
-        coffeeLink.font = .systemFont(ofSize: 10)
-        coffeeLink.contentTintColor = Glass.textSecondary
-        coffeeLink.alphaValue = 0.5
-        stackView.addArrangedSubview(coffeeLink)
     }
 
     @objc private func copyImage(_ sender: NSButton) {
@@ -285,8 +282,8 @@ class PanelViewController: NSViewController {
         store.clear()
     }
 
-    @objc private func openCoffee() {
-        NSWorkspace.shared.open(URL(string: "https://buymeacoffee.com/masayasusuzuki")!)
+    @objc private func quitApp() {
+        NSApp.terminate(nil)
     }
 
     private var previewWindow: ImagePreviewWindow?
@@ -306,23 +303,11 @@ class PanelViewController: NSViewController {
 
     @objc private func takeScreenshot() {
         view.window?.orderOut(nil)
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) { [weak self] in
-            let tempFile = FileManager.default.temporaryDirectory
-                .appendingPathComponent("TenShot_ss_\(UUID().uuidString).png").path
-            let process = Process()
-            process.executableURL = URL(fileURLWithPath: "/usr/sbin/screencapture")
-            process.arguments = ["-i", tempFile]
-            process.terminationHandler = { _ in
-                DispatchQueue.main.async {
-                    self?.view.window?.orderFrontRegardless()
-                    if FileManager.default.fileExists(atPath: tempFile),
-                       let img = NSImage(contentsOfFile: tempFile) {
-                        self?.store.add(image: img)
-                        try? FileManager.default.removeItem(atPath: tempFile)
-                    }
-                }
+        ScreenshotCapture.shared.captureRegion { [weak self] image in
+            self?.view.window?.orderFrontRegardless()
+            if let image {
+                self?.store.add(image: image)
             }
-            try? process.run()
         }
     }
 }

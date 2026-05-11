@@ -18,7 +18,6 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         }
 
         panelWindowController = PanelWindowController()
-        NSLog("[10Shot] App launched successfully")
     }
 
     func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool {
