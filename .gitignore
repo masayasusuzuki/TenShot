@@ -1,0 +1,48 @@
+# macOS
+.DS_Store
+
+# Xcode
+build/
+DerivedData/
+*.pbxuser
+!default.pbxuser
+*.mode1v3
+!default.mode1v3
+*.mode2v3
+!default.mode2v3
+*.perspectivev3
+!default.perspectivev3
+xcuserdata/
+*.xccheckout
+*.moved-aside
+*.xcuserstate
+*.xcscmblueprint
+*.hmap
+*.ipa
+*.dSYM.zip
+*.dSYM
+
+# Swift Package Manager
+.swiftpm/
+.build/
+
+# CocoaPods
+Pods/
+
+# Carthage
+Carthage/Build/
+
+# Secrets / env
+.env
+.env.*
+!.env.example
+
+# Photoshop / heavy binaries
+*.psd
+
+# 個人ドラフト・OSS 公開対象外
+doc/phase4-*
+doc/assets/
+doc/screenshot*.png
+public/banner*.png
+scripts/
