@@ -20,7 +20,7 @@
 ## App Store
 
 App Store で無料配布中。インストールだけしたい人はこちら：
-👉 (App Store リンク準備中)
+👉 https://apps.apple.com/app/tenshot/id6762607118
 
 ## 自分でビルド・改造したい人へ
 
